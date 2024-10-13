@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Express</title>
+    <link rel="stylesheet" href="/stylesheets/style.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+
+<body>
+<h1>Express</h1>
+<p>Welcome to Express</p>
+<button id='btn'>REQUEST</button>
+
+<script>
+    function urlBase64ToUint8Array(base64String) {
+        var padding = '='.repeat((4 - base64String.length % 4) % 4);
+        var base64 = (base64String + padding)
+            .replace(/\-/g, '+')
+            .replace(/_/g, '/');
+
+        var rawData = window.atob(base64);
+        var outputArray = new Uint8Array(rawData.length);
+
+        for (var i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    const handlePermission = (status) => {
+        console.log("Notification 상태", status);
+        if (status === "denied") {
+            alert("Notification 거부됨");
+        } else if (navigator.serviceWorker) {
+            navigator.serviceWorker
+                .register("./sw.js") // serviceworker 등록
+                .then(async function (registration) {
+                    console.log(registration)
+                    const subscribeOptions = {
+                        userVisibleOnly: true,
+                        // push subscription이 유저에게 항상 보이는지 여부. 알림을 숨기는 등 작업이 들어가지는에 대한 여부인데, 크롬에서는 true 밖에 지원안한다.
+                        // https://developers.google.com/web/fundamentals/push-notifications/subscribing-a-user
+                        applicationServerKey: urlBase64ToUint8Array("BL34p8kEPuwz4jDGXCwaeZpuwh3Dxx3lPeooBhItoTDBwQQyfGK0srQ2O3_1wl67kdVkFAotJ6Cq5SjEM6mo3JU"), // 발급받은 vapid public key
+                    };
+                    console.log(registration.pushManager)
+                    console.log(registration.pushManager.subscribe)
+                    console.log(subscribeOptions)
+                    return registration.pushManager.subscribe(subscribeOptions);
+                })
+                .then(async function (pushSubscription) {
+                    console.log(pushSubscription)
+                    // subscription 정보를 저장할 서버로 보낸다.
+                    await fetch("https://webpush.hellonoa.dev/register", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({subscription: pushSubscription})
+                    });
+                });
+        }
+    }
+
+
+    // 브라우저가 알림을 지원하는지 확인
+    if (!("Notification" in window)) {
+        console.log("이 브라우저는 알림을 지원하지 않습니다.");
+    } else {
+        document.querySelector('#btn').addEventListener('click', () => {
+            Notification.requestPermission().then((permission) => {
+                handlePermission(permission);
+            });
+        });
+        // document.querySelector('#btn').addEventListener('click', () => {
+        //     Notification.requestPermission(function (permission) {
+        //         handlePermission(permission);
+        //     });
+        // });
+
+    }
+</script>
+</body>
+
+</html>
